@@ -46,6 +46,28 @@
     "stopping": "Stopping wl-mirror…",
     "wl_mirror_missing": "wl-mirror was not found in PATH."
   },
+  "projection": {
+    "title": "Project",
+    "source": "Laptop / source display",
+    "destination": "External display",
+    "laptop": "Laptop only",
+    "duplicate": "Duplicate",
+    "extend": "Extend",
+    "external": "External only",
+    "hint": "Choose a layout. Duplicate starts mirroring after you keep the layout.",
+    "connect_display": "Connect an external display to duplicate, extend, or use external only.",
+    "missing": "Install python3 and wlr-randr to manage display layouts.",
+    "query_failed": "Cannot read display layouts. Your compositor must support wlr-output-management.",
+    "launch_failed": "The display layout helper could not be started.",
+    "applying": "Applying display layout…",
+    "pending": "Keep this layout? Reverting in {seconds} seconds.",
+    "keep": "Keep",
+    "revert": "Revert",
+    "kept": "Display layout kept for this session.",
+    "reverted": "Previous display layout restored.",
+    "laptop_current": "Laptop only (current)",
+    "unchanged": "Already using this display layout."
+  },
   "title": "Screen Mirror",
   "widget": {
     "error": "Screen mirror error",

@@ -285,6 +285,9 @@ noctalia.state.watch("mirror_request", function(request)
 end)
 
 function onOutputsChanged()
+	-- Panels do not receive output events directly. Publish a separate snapshot
+	-- even while stopped, so an open picker notices a newly connected display.
+	noctalia.state.set("mirror_outputs", noctalia.outputs() or {})
 	if
 		(status.phase == "running" or status.phase == "starting")
 		and (not connected(status.source) or not connected(status.destination))

@@ -281,6 +281,13 @@ noctalia.state.watch("mirror_status", function(value)
 	end
 end)
 
+noctalia.state.watch("mirror_outputs", function(_value)
+	if opened then
+		refreshOutputs()
+		render()
+	end
+end)
+
 function onOpen(_context)
 	opened = true
 	status = noctalia.state.get("mirror_status") or status
