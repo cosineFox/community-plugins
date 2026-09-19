@@ -1,125 +1,113 @@
 # Wayland Screen Mirror
 
-Project to an external display with Laptop only, Duplicate, Extend, or External
-only. Mirroring uses the existing managed `wl-mirror` service. The original
-source/destination mirroring panel remains available.
-
-## Plugin
-
-| Field | Value |
-| --- | --- |
-| ID | `elijaharch/wl-screen-mirror` |
-| Entries | Bar widget: `mirror`; Control Center shortcut: `open-controls`; panels: `controls`, `projection`; services: `mirror-service`, `projection-service` |
+Identify and arrange multiple Wayland displays, switch layouts safely, and mirror
+a selected pair. Display management is opt-in and session-only: this plugin never
+rewrites compositor startup configuration.
 
 ## Requirements
 
-- [`wl-mirror`](https://github.com/Ferdi265/wl-mirror) available on `PATH`
-- [`wlr-randr`](https://gitlab.freedesktop.org/emersion/wlr-randr) and `python3`
-  for the projection panel. Python uses only its standard library.
-- A compositor supporting `wlr-output-management` for output layout changes,
-  such as labwc. Compositors without this protocol can still use the original
-  mirroring panel with already enabled outputs.
-- A compositor exposing a capture protocol supported by `wl-mirror` and two
-  enabled displays. Display detection alone does not guarantee capture support.
+- The companion Noctalia core patch with **plugin API 33** (position canvas and
+  output identifier overlays). Stock Noctalia 5.1.0 does not have these additions.
+- `python3` and [`wlr-randr`](https://gitlab.freedesktop.org/emersion/wlr-randr), plus
+  a compositor supporting `wlr-output-management`, such as labwc.
+- [`wl-mirror`](https://github.com/Ferdi265/wl-mirror) and a supported capture
+  protocol for mirroring. Layout management does not need a running mirror.
 
-## Usage
+No toolkit, root access, daemon, or third-party Python module is added.
 
-1. Add **Project** to Settings → Control Center shortcuts (`open-controls`).
-2. Select the laptop/source and external display, then choose a projection mode.
-3. Click **Keep** within 15 seconds, or the previous layout is restored.
-   Closing the panel does not confirm the change.
+## Displays in Monitor
+
+Select this plugin in Settings → Control Center → Projection Panel:
+
+```toml
+[control_center]
+project_panel = "elijaharch/wl-screen-mirror:projection"
+```
+
+The compact Displays section appears above brightness controls. **Identify** shows
+matching numbers and connector names on enabled screens for five seconds, without
+stealing focus or intercepting clicks. Numbers are shared by the compact panel,
+arranger, and overlays; moving a display does not change its number. They are
+connector-based and stable within the shell session, not permanent hardware IDs.
+
+**Arrange displays…** opens the larger floating panel. The existing Project
+shortcut and panel ID are retained:
 
 ```sh
 noctalia msg panel-toggle elijaharch/wl-screen-mirror:projection
 ```
 
-| Mode | Result |
+The original `controls` panel and `mirror` widget still work independently.
+
+## Arrangement
+
+1. Identify the physical screens.
+2. Select a numbered tile or display button. Disabled displays are selectable in
+   the list but are not drawn in the active desktop canvas.
+3. Drag active tiles, or enter X/Y coordinates and press Enter. Positions use
+   logical desktop pixels, including scale and rotation. Negative coordinates
+   and staggered layouts are supported; nearby edges snap and overlaps are rejected.
+4. Enable a disabled screen at the desktop's right edge, disable an enabled
+   screen, or choose **Use only this display**. At least one display must remain on.
+5. **Apply arrangement** previews the draft. **Keep** accepts it within 15 seconds;
+   **Revert** or timeout restores the previous layout. **Reset draft** only discards
+   unsaved edits, with no output commands.
+
+Dragging and selection alone do not change live outputs. A live topology change
+invalidates an unsaved draft. Presets and mirroring are unavailable while a draft
+needs Apply or Reset. Current layouts are detected from observed output and mirror
+state rather than the last action clicked.
+
+| Action | Result |
 | --- | --- |
-| Laptop only | Enables the selected source; disables other connected outputs. |
-| Duplicate | Enables the selected pair side by side; starts `wl-mirror` after Keep. |
-| Extend | Enables the selected pair with the external display to the right. |
-| External only | Enables the selected external display; disables other outputs. |
+| Laptop only | Enables the built-in display and disables the others. |
+| Extend all displays | Enables every connected display; preserves existing positions and adds newly enabled screens at the right edge. |
+| External displays only | Enables every external display and disables built-in panels. |
+| Mirror… | Reveals explicit source/destination selectors; unrelated displays are preserved. |
 
-Duplicate previews the output arrangement before confirmation, then starts the
-capture process. A capture failure is reported by the original mirror service;
-the Project panel displays that error directly. Select another mode to stop capture.
-Duplicate is a fullscreen capture window, not compositor-native output cloning.
+Mirroring supports **one pair** and uses a fullscreen `wl-mirror` capture window,
+not compositor-native cloning. When a layout change is necessary, capture starts
+only after Keep; an already suitable layout needs no countdown. Capture errors are
+shown rather than reporting a successful mirror. Stop mirroring leaves the output
+layout in place. A rejected/reverted layout attempts to resume the previous managed
+pair when both outputs remain usable.
 
-Laptop only is marked current and inactive when the selected source is already
-the only enabled output. This does not start a layout transaction or a timer.
+## Safety and limitations
 
-The original `mirror` bar widget opens the mirroring controls directly. Select
-two already enabled displays and click **Start mirroring**, or use:
+- All connected outputs participate in the snapshot. Modes, refresh rates, scale,
+  rotation, and adaptive sync are preserved unless an output must be enabled at
+  its preferred mode.
+- Requests are validated before mutation, dry-run first, rechecked for staleness,
+  and verified from compositor readback. Keep rechecks the pending topology.
+- Confirmation opens in the persistent arrangement panel. The companion core
+  rehomes persistent panels when their output disappears. Closing a panel does
+  not confirm a preview.
+- Helpers share a lock but have unique control/request files, so a reloaded
+  service cannot confirm an older transaction. Reload recovery waits for the
+  previous helper to finish before attempting to resume a stopped mirror.
+- If the previously enabled screens disconnect, recovery enables a surviving
+  built-in display (or another surviving output). Forced SIGKILL, compositor
+  crashes, and hardware failures can prevent restoration. Concurrent external
+  layout tools should not be used during a preview.
+- Geometry follows `wlr-randr` 0.5.0 and wlroots 0.20.2 logical-size truncation.
+  Other compositor behaviour, multi-monitor scaling, physical Identify overlays,
+  and panel migration require live hardware validation before deployment.
+- No persistent profiles or multiple mirror groups are provided in this update.
 
-```sh
-noctalia msg panel-toggle elijaharch/wl-screen-mirror:controls
-```
-
-The service stops mirroring automatically if either selected output disconnects.
-The open panel refreshes its monitor lists when displays connect or disconnect.
-The Control Center shortcut is highlighted while mirroring is running. It remains
-clickable when setup is incomplete, so the panel can explain what is missing.
-
-### Labwc shortcut
-
-On Noctalia builds with **Projection Panel** in Settings → Control Center, choose
-this plugin's `projection` panel there to embed its controls directly in Monitor.
-That integration needs the companion core change; stock Noctalia 5.1.0 does not
-provide the setting. No separate desktop launcher entry is needed.
-
-The embedded view uses a compact two-column layout and the Monitor page's close
-button. The same panel remains available separately through IPC if desired.
-
-Inside the existing `<keyboard>` section of `~/.config/labwc/rc.xml`, bind an
-unused key to the panel:
-
-```xml
-<keybind key="W-p">
-  <action name="Execute" command="noctalia msg panel-toggle elijaharch/wl-screen-mirror:projection"/>
-</keybind>
-```
-
-Run `labwc --reconfigure` to activate the binding, then press Super+P. Replace any
-existing Super+P binding rather than adding a duplicate.
-
-The projection panel includes connected but disabled displays. It preserves the
-current modes of enabled displays and selects the preferred mode when enabling
-a display without a current mode. Scale and rotation are preserved. Changes
-are session-only; compositor startup configuration is never rewritten.
-
-The rollback snapshot includes enabled state, mode/refresh, position, scale,
-rotation, and adaptive sync. Disconnected outputs are omitted from recovery; if
-the only previously enabled display disappears, a surviving laptop display is
-enabled at its preferred mode. The helper restores unconfirmed changes on normal
-termination signals. Forced SIGKILL, compositor crashes, and hardware failures
-can prevent restoration. Layout tools that change outputs concurrently may
-conflict with a pending preview; finish or revert the preview first.
-
-## Development checks
-
-Run the focused regression tests with Python 3 and the Luau interpreter installed:
+## Development
 
 ```sh
-python3 -m unittest discover -s wl-screen-mirror/tests -p 'test_*.py'
-noctalia plugins lint wl-screen-mirror
+python3 -m unittest discover -s tests -p 'test_*.py'
+/path/to/patched/noctalia plugins lint /path/to/wl-screen-mirror
 ```
 
-Luau is a test tool only. Python 3 is also used by the projection helper.
+Luau is needed only by the mocked entry tests. Tests do not issue display commands.
+The helper runs for queries, short-lived layout previews, and reload recovery; it
+has no idle polling process. During a preview it checks output state approximately
+once per second and immediately before Keep.
 
-## Notes
-
-- The plugin launches
-  `wl-mirror --fullscreen-output DESTINATION --fullscreen SOURCE`.
-- A private marker and the latest `wl-mirror` error output are written under the
-  plugin data directory. No user content is stored.
-- The managed process is terminated when mirroring stops, the plugin reloads,
-  or Noctalia exits. Other `wl-mirror` processes are not affected.
-- The projection service runs `python3 projection.py list` when its panel opens
-  or output geometry changes. Applying a mode runs a short-lived Python helper
-  and `wlr-randr` queries, dry runs, apply, and (when needed) restore commands.
-  There is no idle polling process. A control file and lock file live under the
-  plugin data directory; no display snapshots are written to disk.
-- The existing mirror wrapper uses `/bin/sh`, `sleep`, and shell built-ins for
-  process control. The projection wrapper uses `/bin/sh` and `printf` to report
-  unexpected helper exits. No new system service or root permission is needed.
-- The plugin makes no network requests.
+The plugin data directory holds the shared lock, transaction-owned temporary
+control/JSON request files (removed on normal completion, failure, or unload), and
+the existing managed mirror marker/error output. Temporary arrangement requests
+contain geometry, not user content. No profiles are saved and no network requests
+are made. Workspace source changes do not deploy to the installed desktop.

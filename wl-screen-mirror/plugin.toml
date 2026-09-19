@@ -1,13 +1,13 @@
 id = "elijaharch/wl-screen-mirror"
 name = "Wayland Screen Mirror"
-version = "1.1.0"
-plugin_api = 17
+version = "1.2.0"
+plugin_api = 33
 author = "elijaharch"
 license = "MIT"
 dependencies = ["wl-mirror", "wlr-randr", "python3"]
 tags = ["bar", "panel", "service", "shortcut", "utility", "video"]
 icon = "screen-share"
-description = "Mirror Wayland outputs and switch between laptop, duplicate, extend, and external display layouts."
+description = "Identify and arrange multiple Wayland displays, switch layouts safely, and mirror a selected pair."
 
 [[widget]]
 id = "mirror"
@@ -33,10 +33,12 @@ entry = "shortcut.luau"
 [[panel]]
 id = "projection"
 entry = "projection-panel.luau"
-width = 390
-height = 600
+width = 900
+height = 760
 placement = "floating"
 position = "center"
+dismiss_on_outside_click = false
+persistent = true
 
 [[service]]
 id = "projection-service"
